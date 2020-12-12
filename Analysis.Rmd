@@ -33,6 +33,7 @@ library(maps)
 library(usmap)
 library(ggthemes)
 library(tibble)
+library(zoo)
 ```
 
 ```{r}
@@ -42,7 +43,6 @@ locdata <- read_xlsx("North Carolina Prisons.xlsx")
 
 str(coviddata)
 ```
-
 
 ```{r}
 #Assorted cleaning
@@ -391,6 +391,7 @@ messyid <- messycovid %>%
 messynames <- messyid %>%
   mutate(
     cleanname = case_when(facility == "Albemarle CI" ~ "Albemarle Correctional Institution",
+                   facility == "ALEXANDER CI" ~ "Alexander Correctional Institution",
                    facility == "Carteret CC" ~ "Carteret Correctional Center",
                    facility == "Caswell CC" ~ "Caswell Correctional Center",
                    facility == "Catawba CC" ~ "Catawba Correctional Center",
@@ -498,7 +499,7 @@ missingid <- as.data.frame(missingid)
 
 missingid <- missingdates %>%
   mutate(
-    id = case_when(facility == "Albemarle CI" ~ "NC1",
+    id = case_when(facility == "ALBEMARLE CI" ~ "NC1",
                    facility == "Carteret CC" ~ "NC10",
                    facility == "Caswell CC" ~ "NC11",
                    facility == "Catawba CC" ~ "NC12",
@@ -561,11 +562,83 @@ missingid <- missingdates %>%
                    facility == "Caledonia CI" ~ "NC9",))
 
 getwd()
-write_xlsx(missingid, "/Users/taylorbuck/Desktop/missingid.xlsx")
-
-missingid2 <- read_xlsx("missingid.xlsx")
-str(missingid2)
+write_xlsx(missingid, "/Users/taylorbuck/Desktop/missingcleanname.xlsx")
 ```
+
+```{r}
+#Sept. 13 data
+sept13 <- subset(messynames, date == "2020-09-13")
+sept13$facility <- toupper(sept13$facility)
+
+sept13names <- sept13 %>%
+  mutate(
+    cleanname = case_when(facility_bjs == "ALBEMARLE CI" ~ "Albemarle Correctional Institution",
+                   facility == "ALEXANDER CI" ~ "Alexander Correctional Institituion",
+                   facility == "CARTERET CC" ~ "Carteret Correctional Center",
+                   facility == "CASWELL CC" ~ "Caswell Correctional Center",
+                   facility == "CATAWBA CC" ~ "Catawba Correctional Center",
+                   facility == "CENTRAL PRISON" ~ "Central Prison",
+                   facility == "COLUMBUS CI" ~ "Columbus Correctional Center",
+                   facility == "CRAGGY CC" ~ "Craggy Correctional Center",
+                   facility == "CRAVEN CI" ~ "Craven Correctional Institution",
+                   facility == "DAN RIVER PWF" ~ "Dan River Prison Work Farm",
+                   facility == "DAVIDSON CC" ~ "Davidson Correctional Center",
+                   facility == "EASTERN CI" ~ "Eastern Correctional Institution",
+                   facility == "FOOTHILLS CI" ~ "Foothills Correctional Institution",
+                   facility == "FORSYTH CC" ~ "Forsyth Correctional Center",
+                   facility == "FRANKLIN CC" ~ "Franklin Correctional Center",
+                   facility == "GASTON CC" ~ "Gaston Correctional Center",
+                   facility == "GREENE CI" ~ "Greene Correctional Center",
+                   facility == "HARNETT CI" ~ "Harnett Correctional Institution",
+                   facility == "HYDE CI" ~ "Hyde Correctional Institution",
+                   facility == "JOHNSTON CI" ~ "Johnston Correctional Center",
+                   facility == "LINCOLN CC" ~ "Lincoln Correctional Center",
+                   facility == "LUMBERTON CI" ~ "Lumberton Correctional Institution",
+                   facility == "ANSON CI" ~ "Anson Correctional Institution",
+                   facility == "MARION CI" ~ "Marion Correctional Institution",
+                   facility == "MAURY CI" ~ "Maury Correctional Institution",
+                   facility == "MORRISON CI" ~ "Morrison Correctional Institution",
+                   facility == "MOUNTAIN VIEW CI" ~ "Mountain View Correctional Facility",
+                   facility == "NC CI WOMEN" ~ "North Carolina Correctional Institution for Women",
+                   facility == "NASH CI" ~ "Nash Correctional Institution",
+                   facility == "NEUSE CI" ~ "Neuse Correctional Institution",
+                   facility == "NEW HANOVER CC" ~ "New Hanover Correctional Center",
+                   facility == "NORTH PIED CRV" ~ "North Piedmont Correctional Center for Women",
+                   facility == "NORTH PIEDMONT CRV" ~ "North Piedmont Correctional Center for Women",
+                   facility == "ORANGE CC" ~ "Orange Correctional Center",
+                   facility == "AVERYMITCHELL CI" ~ "Avery/Mitchell Correctional Institution",
+                   facility == "PAMLICO CI" ~ "Pamlico Correctional Facility",
+                   facility == "PASQUOTANK CI" ~ "Pasquotank Correctional Institution",
+                   facility == "PENDER CI" ~ "Pender Correctional Institution",
+                   facility == "PIEDMONT CI" ~ "Piedmont Correctional Institution",
+                   facility == "POLK CI" ~ "Polk Correctional Institution",
+                   facility == "RALEIGH CCW" ~ "Raleigh Correctional Center for Women",
+                   facility == "RANDOLPH CC" ~ "Randolph Correctional Center",
+                   facility == "RUTHERFORD CC" ~ "Rutherford Correctional Center",
+                   facility == "SAMPSON CI" ~ "Sampson Correctional Institution",
+                   facility == "SANFORD CC" ~ "Sanford Correctional Center",
+                   facility == "BERTIE CI" ~ "Bertie Correctional Institution",
+                   facility == "SCOTLAND CI" ~ "Scotland Correctional Institution",
+                   facility == "SOUTHERN CI" ~ "Southern Correctional Institution",
+                   facility == "SWANNANOA CCW" ~ "Swannanoa Correctional Center for Women",
+                   facility == "TABOR CI" ~ "Tabor Correctional Institution",
+                   facility == "TYRRELL PWF" ~ "Tyrrell Prison Work Farm",
+                   facility == "WAKE CC" ~ "Wake Correctional Center",
+                   facility == "WARREN CI" ~ "Warren Correctional Institution",
+                   facility == "WILKES CC" ~ "Wilkes Correctional Center",
+                   facility == "BLADEN CC" ~ "Bladen Correctional Center",
+                   facility == "BURKE CRV CENTER" ~ "Burke CRV Center",
+                   facility == "BURKE CRV" ~ "Burke CRV Center",
+                   facility == "CALDWELL CC" ~ "Caldwell Correctional Center",
+                   facility == "CALEDONIA CI" ~ "Caledonia Correctional Institution",
+                   facility == "SWANNOA CCW" ~ "Swannanoa Correctional Center for Women",
+                   facility == "HOKE CI" ~ "Hoke Correctional Institution",
+                   facility == "ROBESON CRV" ~ "Robeson CRV Center"))
+
+addsept13 <- sept13 %>%
+  select(date, cleanname, fac_inc_tested, fac_inc_positive, fac_inc_negative, facility_bjs, id)
+```
+
 
 ```{r}
 missingnew <- read_xlsx("allid.xlsx")
@@ -574,6 +647,7 @@ names(missingnew)[names(missingnew) == "cleanname...4"] <- "cleanname"
 missingloc <- merge(missingnew, smallloc, by = "cleanname", all = TRUE)
 missingloc <- missingloc %>%
   arrange(date)
+
 missingloc <- missingloc[c(1:1188),]
 
 #Joining the missingloc to messyloc
@@ -586,6 +660,22 @@ missingloc <- missingloc %>%
 allwithloc <- rbind(messyloc, missingloc)
 allwithloc <- allwithloc %>%
   arrange(date)
+
+#Adding in Sept. 13 data
+sept13loc <- merge(sept13names, smallloc, by = "cleanname", all = TRUE)
+sept13loc$stateagency[is.na(sept13loc$stateagency)] <- 0
+sept13loc <- sept13loc %>%
+  filter(stateagency != 0) %>%
+  select(-fac_stateid)
+
+allwithloc <- rbind(allwithloc, sept13loc)
+allwithloc <- allwithloc %>%
+  arrange(date)
+
+allwithloc <- allwithloc[-c(8171:8175),]
+
+allwithloc[8177,21] <- 35.8841
+allwithloc[8177,22] <- -81.17678
 
 #Adjusting cumulative
 fd <- allwithloc[c(1:55),]
@@ -634,35 +724,15 @@ write_xlsx(formap, "/Users/taylorbuck/Desktop/mapdata.xlsx")
 
 #Calc recovered
 recdf <- activealloc %>%
-  mutate(date = as_date(date)) %>%
+  #mutate(date = as.Date(date)) %>%
   group_by(cleanname) %>%
-  arrange(date) %>%
-  mutate(cumpos = accumulate(newpositive, `+`))
+  mutate(x = cumsum(newpositive)) %>%
+  mutate(reccases = lag(x, 14)) %>%
+  select(-x)
 
+recdf$reccases[is.na(recdf$reccases)] <- 0
 
-recalloc <- activealloc %>%
-  mutate(date = as.Date(date)) %>%
-  group_by(cleanname) %>%
-  mutate(reccases = map_dbl(date, ~sum(newpositive[(date <= . + 14) & date >= .])))
-
-  
-  mutate(reccases = for (i in 1:nrow(activealloc)) {
-    
-  })
-
-for (i in 1:nrow(activealloc)) {
-  #getting number of new cases
-  x <- activealloc$newpositive[i]
-  #add 14 days to the date
-  d <- activealloc$date + 14
-  activealloc$rec <- sum(x)
-}
-  
-  mutate(reccases = map_dbl(date, ~sum(newpositive[(date <= . + 14) & date >= .])))
-  
-  
-  mutate(reccases = rollsum(x = newpositive, 28, align = "right", fill = NA))
-  
-  mutate(reccases = map_dbl(date, ~sum(newpositive[(date >= . - 14)])))
+getwd()
+write_xlsx(recdf, "/Users/taylorbuck/Desktop/mapdata.xlsx")
 ```
 
