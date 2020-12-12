@@ -1,0 +1,668 @@
+---
+title: "COVID in NC Prisons"
+output: html_notebook
+---
+
+```{r}
+library(dplyr)
+library(tidyverse)
+library(readxl)
+library(janitor)
+library(stringr)
+#install.packages("writexl")
+library(writexl)
+library(lubridate)
+library(sf)
+#install.packages("mapview")
+library(mapview)
+#install.packages("RcppRoll")
+library(RcppRoll)
+#install.packages("zoo")
+library(zoo)
+library(tidyr)
+#install.packages("runner")
+library(runner)
+#install.packages("sparklyr")
+library(sparklyr)
+#install.packages("gganimate")
+library(gganimate)
+library(ggplot2)
+#install.packages("maps")
+library(maps)
+#install.packages("usmap")
+library(usmap)
+library(ggthemes)
+library(tibble)
+```
+
+```{r}
+#Reading data in
+coviddata <- read_xlsx("RTI2.xlsx", sheet = 1, guess_max = 10000)
+locdata <- read_xlsx("North Carolina Prisons.xlsx")
+
+str(coviddata)
+```
+
+
+```{r}
+#Assorted cleaning
+str(coviddata)
+str(locdata)
+
+cleancovid <- coviddata
+cleanloc <- locdata
+
+#Cleaning location data names
+cleanloc <- cleanloc %>%
+  arrange(cleanloc$Prison)
+cleanloc$Prison <- gsub("-", "/", cleanloc$Prison)
+cleanloc$Prison[cleanloc$Prison == "Johnston Correctional Institution"] <- "Johnson Correctional Center"
+cleanloc$Prison[cleanloc$Prison == "Mountain View Correctional Institution"] <- "Mountain View Correctional Facility"
+cleanloc$Prison[cleanloc$Prison == "N.C. Correctional Institution for Women"] <- "North Corolina Correctional Inst For Women"
+cleanloc$Prison[cleanloc$Prison == "Orange Correctional Institution"] <- "Orange Correctional Center"
+cleanloc$Prison[cleanloc$Prison == "Pamlico Correctional Institution"] <- "Pamlico Correctional Facility"
+cleanloc$Prison[cleanloc$Prison == "Pender Correctional Center"] <- "Pender Correctional Institution"
+cleanloc$Prison[cleanloc$Prison == "Tyrrell Prison Work Farm"] <- "Tyrrell Pwf"
+cleanloc$Prison[cleanloc$Prison == "Swannanoa Correctional Center for Women"] <- "Swannanoa Correctional Center For Women"
+
+#Cleaning COVID data names
+cleancovid$facility[cleancovid$facility == "Albemarle Ci"] <- "Albemarle CI"
+cleancovid$facility[cleancovid$facility == "Alexander Ci"] <- "Alexander CI"
+cleancovid$facility[cleancovid$facility == "Anson Ci"] <- "Anson CI"
+cleancovid$facility[cleancovid$facility == "AveryMitchell Ci"] <- "Avery-Mitchell CI"
+cleancovid$facility[cleancovid$facility == "Avery-Mitch CI"] <- "Avery-Mitchell CI"
+cleancovid$facility[cleancovid$facility == "Bertie Ci"] <- "Bertie CI"
+cleancovid$facility[cleancovid$facility == "Burke CRV"] <- "Burke CRV Center"
+cleancovid$facility[cleancovid$facility == "Caldwell Cc"] <- "Caldwell CC"
+cleancovid$facility[cleancovid$facility == "Caledonia Ci"] <- "Caledonia CI"
+cleancovid$facility[cleancovid$facility == "Carteret Cc"] <- "Carteret CC"
+cleancovid$facility[cleancovid$facility == "Caswell Cc"] <- "Caswell CC"
+cleancovid$facility[cleancovid$facility == "Catawba Cc"] <- "Catawba CC"
+cleancovid$facility[cleancovid$facility == "Central Prison HCF"] <- "Central Prison"
+cleancovid$facility[cleancovid$facility == "Columbus Ci"] <- "Columbus CI"
+cleancovid$facility[cleancovid$facility == "Craggy Cc"] <- "Craggy CC"
+cleancovid$facility[cleancovid$facility == "Craven Ci"] <- "Craven CI"
+cleancovid$facility[cleancovid$facility == "Davidson Cc"] <- "Davidson CC"
+cleancovid$facility[cleancovid$facility == "Eastern Ci"] <- "Eastern CI"
+cleancovid$facility[cleancovid$facility == "Foothills Ci"] <- "Foothills CI"
+cleancovid$facility[cleancovid$facility == "Forsyth Cc"] <- "Forsyth CC"
+cleancovid$facility[cleancovid$facility == "Franklin Cc"] <- "Franklin CC"
+cleancovid$facility[cleancovid$facility == "Gaston Cc"] <- "Gaston CC"
+cleancovid$facility[cleancovid$facility == "Greene Ci"] <- "Greene CI"
+cleancovid$facility[cleancovid$facility == "Harnett Ci"] <- "Harnett CI"
+cleancovid$facility[cleancovid$facility == "Hyde Ci"] <- "Hyde CI"
+cleancovid$facility[cleancovid$facility == "Johnston Ci"] <- "Johnston CI"
+cleancovid$facility[cleancovid$facility == "Lincoln Cc"] <- "Lincoln CC"
+cleancovid$facility[cleancovid$facility == "Lumberton Ci"] <- "Lumberton CI"
+cleancovid$facility[cleancovid$facility == "Marion Ci"] <- "Marion CI"
+cleancovid$facility[cleancovid$facility == "Maury Ci"] <- "Maury CI"
+cleancovid$facility[cleancovid$facility == "Morrison Ci"] <- "Morrison CI"
+cleancovid$facility[cleancovid$facility == "Mountain View Ci"] <- "Mountain View CI"
+cleancovid$facility[cleancovid$facility == "Nash Ci"] <- "Nash CI"
+cleancovid$facility[cleancovid$facility == "NCCIW"] <- "NC CI Women"
+cleancovid$facility[cleancovid$facility == "Neuse Ci"] <- "Neuse CI"
+cleancovid$facility[cleancovid$facility == "New Hanover Cc"] <- "New Hanover CC"
+cleancovid$facility[cleancovid$facility == "North Piedmont CRV"] <- "North Pied CRV"
+cleancovid$facility[cleancovid$facility == "Orange Cc"] <- "Orange CC"
+cleancovid$facility[cleancovid$facility == "Pamlico Ci"] <- "Pamlico CI"
+cleancovid$facility[cleancovid$facility == "Pasquotank Ci"] <- "Pasquotank CI"
+cleancovid$facility[cleancovid$facility == "Pender Ci"] <- "Pender CI"
+cleancovid$facility[cleancovid$facility == "Piedmont Ci"] <- "Piedmont CI"
+cleancovid$facility[cleancovid$facility == "Polk Ci"] <- "Polk CI"
+cleancovid$facility[cleancovid$facility == "Randolph Cc"] <- "Randolph CC"
+cleancovid$facility[cleancovid$facility == "Rutherford Cc"] <- "Rutherford CC"
+cleancovid$facility[cleancovid$facility == "Sampson Ci"] <- "Sampson CI"
+cleancovid$facility[cleancovid$facility == "Sanford Cc"] <- "Sanford CC"
+cleancovid$facility[cleancovid$facility == "Scotland Ci"] <- "Scotland CI"
+cleancovid$facility[cleancovid$facility == "Southern Ci"] <- "Southern CI"
+cleancovid$facility[cleancovid$facility == "Swannanoa CCw"] <- "Swannanoa CCW"
+cleancovid$facility[cleancovid$facility == "Swannoa CCW"] <- "Swannanoa CCW"
+cleancovid$facility[cleancovid$facility == "Tabor Ci"] <- "Tabor CI"
+cleancovid$facility[cleancovid$facility == "Wake Cc"] <- "Wake CC"
+cleancovid$facility[cleancovid$facility == "Warren Ci"] <- "Warren CI"
+cleancovid$facility[cleancovid$facility == "Wilkes Cc"] <- "Wilkes CC"
+
+#Adding ID column with facility ID for all rows
+codes <- coviddata %>%
+  group_by(fac_stateid) %>%
+  summarise(sum(fac_inc_tested))
+
+withid <- cleancovid %>%
+  mutate(
+    id = case_when(facility == "Albemarle CI" ~ "NC1",
+                   facility == "Carteret CC" ~ "NC10",
+                   facility == "Caswell CC" ~ "NC11",
+                   facility == "Catawba CC" ~ "NC12",
+                   facility == "Central Prison" ~ "NC13",
+                   facility == "Columbus CI" ~ "NC14",
+                   facility == "Craggy CC" ~ "NC15",
+                   facility == "Craven CI" ~ "NC16",
+                   facility == "Dan River PWF" ~ "NC17",
+                   facility == "Davidson CC" ~ "NC18",
+                   facility == "Eastern CI" ~ "NC19",
+                   facility == "Alexander CI" ~ "NC2",
+                   facility == "Foothills CI" ~ "NC20",
+                   facility == "Forsyth CC" ~ "NC21",
+                   facility == "Franklin CC" ~ "NC22",
+                   facility == "Gaston CC" ~ "NC23",
+                   facility == "Greene CI" ~ "NC24",
+                   facility == "Harnett CI" ~ "NC25",
+                   facility == "Hyde CI" ~ "NC26",
+                   facility == "Johnston CI" ~ "NC27",
+                   facility == "Lincoln CC" ~ "NC28",
+                   facility == "Lumberton CI" ~ "NC29",
+                   facility == "Anson CI" ~ "NC3",
+                   facility == "Marion CI" ~ "NC30",
+                   facility == "Maury CI" ~ "NC31",
+                   facility == "Morrison CI" ~ "NC32",
+                   facility == "Mountain View CI" ~ "NC33",
+                   facility == "NC CI Women" ~ "NC34",
+                   facility == "Nash CI" ~ "NC35",
+                   facility == "Neuse CI" ~ "NC36",
+                   facility == "New Hanover CC" ~ "NC37",
+                   facility == "North Pied CRV" ~ "NC38",
+                   facility == "Orange CC" ~ "NC39",
+                   facility == "Avery-Mitchell CI" ~ "NC4",
+                   facility == "Pamlico CI" ~ "NC40",
+                   facility == "Pasquotank CI" ~ "NC41",
+                   facility == "Pender CI" ~ "NC42",
+                   facility == "Piedmont CI" ~ "NC43",
+                   facility == "Polk CI" ~ "NC44",
+                   facility == "Raleigh CCW" ~ "NC45",
+                   facility == "Randolph CC" ~ "NC46",
+                   facility == "Rutherford CC" ~ "NC47",
+                   facility == "Sampson CI" ~ "NC48",
+                   facility == "Sanford CC" ~ "NC49",
+                   facility == "Bertie CI" ~ "NC5",
+                   facility == "Scotland CI" ~ "NC50",
+                   facility == "Southern CI" ~ "NC51",
+                   facility == "Swannanoa CCW" ~ "NC52",
+                   facility == "Tabor CI" ~ "NC53",
+                   facility == "Tyrrell PWF" ~ "NC54",
+                   facility == "Wake CC" ~ "NC55",
+                   facility == "Warren CI" ~ "NC56",
+                   facility == "Wilkes CC" ~ "NC57",
+                   facility == "Bladen CC" ~ "NC6",
+                   facility == "Burke CRV Center" ~ "NC7",
+                   facility == "Caldwell CC" ~ "NC8",
+                   facility == "Caledonia CI" ~ "NC9",))
+
+codes2 <- withid %>%
+  group_by(id) %>%
+  summarise(sum(fac_inc_tested, na.rm = TRUE))
+
+#Cleaning names for each facility
+cleancovid <- withid %>%
+  mutate(
+    cleanname = case_when(facility == "Albemarle CI" ~ "Albemarle Correctional Institution",
+                   facility == "Carteret CC" ~ "Carteret Correctional Center",
+                   facility == "Caswell CC" ~ "Caswell Correctional Center",
+                   facility == "Catawba CC" ~ "Catawba Correctional Center",
+                   facility == "Central Prison" ~ "Central Prison",
+                   facility == "Columbus CI" ~ "Columbus Correctional Center",
+                   facility == "Craggy CC" ~ "Craggy Correctional Center",
+                   facility == "Craven CI" ~ "Craven Correctional Institution",
+                   facility == "Dan River PWF" ~ "Dan River Prison Work Farm",
+                   facility == "Davidson CC" ~ "Davidson Correctional Center",
+                   facility == "Eastern CI" ~ "Eastern Correctional Institution",
+                   facility == "Alexander CI" ~ "Alexander Correctional Institution",
+                   facility == "Foothills CI" ~ "Foothills Correctional Institution",
+                   facility == "Forsyth CC" ~ "Forsyth Correctional Center",
+                   facility == "Franklin CC" ~ "Franklin Correctional Center",
+                   facility == "Gaston CC" ~ "Gaston Correctional Center",
+                   facility == "Greene CI" ~ "Greene Correctional Center",
+                   facility == "Harnett CI" ~ "Harnett Correctional Institution",
+                   facility == "Hyde CI" ~ "Hyde Correctional Institution",
+                   facility == "Johnston CI" ~ "Johnston Correctional Center",
+                   facility == "Lincoln CC" ~ "Lincoln Correctional Center",
+                   facility == "Lumberton CI" ~ "Lumberton Correctional Institution",
+                   facility == "Anson CI" ~ "Anson Correctional Institution",
+                   facility == "Marion CI" ~ "Marion Correctional Institution",
+                   facility == "Maury CI" ~ "Maury Correctional Institution",
+                   facility == "Morrison CI" ~ "Morrison Correctional Institution",
+                   facility == "Mountain View CI" ~ "Mountain View Correctional Facility",
+                   facility == "NC CI Women" ~ "North Carolina Correctional Institution for Women",
+                   facility == "Nash CI" ~ "Nash Correctional Institution",
+                   facility == "Neuse CI" ~ "Neuse Correctional Institution",
+                   facility == "New Hanover CC" ~ "New Hanover Correctional Center",
+                   facility == "North Pied CRV" ~ "North Piedmont Correctional Center for Women",
+                   facility == "Orange CC" ~ "Orange Correctional Center",
+                   facility == "Avery-Mitchell CI" ~ "Avery/Mitchell Correctional Institution",
+                   facility == "Pamlico CI" ~ "Pamlico Correctional Facility",
+                   facility == "Pasquotank CI" ~ "Pasquotank Correctional Institution",
+                   facility == "Pender CI" ~ "Pender Correctional Institution",
+                   facility == "Piedmont CI" ~ "Piedmont Correctional Institution",
+                   facility == "Polk CI" ~ "Polk Correctional Institution",
+                   facility == "Raleigh CCW" ~ "Raleigh Correctional Center for Women",
+                   facility == "Randolph CC" ~ "Randolph Correctional Center",
+                   facility == "Rutherford CC" ~ "Rutherford Correctional Center",
+                   facility == "Sampson CI" ~ "Sampson Correctional Institution",
+                   facility == "Sanford CC" ~ "Sanford Correctional Center",
+                   facility == "Bertie CI" ~ "Bertie Correctional Institution",
+                   facility == "Scotland CI" ~ "Scotland Correctional Institution",
+                   facility == "Southern CI" ~ "Southern Correctional Institution",
+                   facility == "Swannanoa CCW" ~ "Swannanoa Correctional Center for Women",
+                   facility == "Tabor CI" ~ "Tabor Correctional Institution",
+                   facility == "Tyrrell PWF" ~ "Tyrrell Prison Work Farm",
+                   facility == "Wake CC" ~ "Wake Correctional Center",
+                   facility == "Warren CI" ~ "Warren Correctional Institution",
+                   facility == "Wilkes CC" ~ "Wilkes Correctional Center",
+                   facility == "Bladen CC" ~ "Bladen Correctional Center",
+                   facility == "Burke CRV Center" ~ "Burke CRV Center",
+                   facility == "Caldwell CC" ~ "Caldwell Correctional Center",
+                   facility == "Caledonia CI" ~ "Caledonia Correctional Institution"))
+
+cleancovid <- cleancovid %>%
+  filter(facility != "Off Premises")
+
+#Going to have to melt cleancovid
+getwd()
+write_xlsx(cleancovid, "/Users/taylorbuck/Desktop/cleancovid.xlsx")
+```
+
+```{r}
+#Adding location to cleancovid df
+names(cleanloc)[names(cleanloc) == "Prison"] <- "facility_bjs"
+
+smallloc <- cleanloc %>%
+  select(facility_bjs, Address, Latitude, Longitude)
+
+smallloc$facility_bjs[smallloc$facility_bjs == "Johnson Correctional Center"] <- "Johnston Correctional Center"
+smallloc$facility_bjs[smallloc$facility_bjs == "North Corolina Correctional Inst For Women"] <- "North Carolina Correctional Institution for Women"
+smallloc$facility_bjs[smallloc$facility_bjs == "Swannanoa Correctional Center For Women"] <- "Swannanoa Correctional Center for Women"
+smallloc$facility_bjs[smallloc$facility_bjs == "Tyrrell Pwf"] <- "Tyrrell Prison Work Farm"
+smallloc$facility_bjs[smallloc$facility_bjs == "Greene Correctional Institution"] <- "Greene Correctional Center"
+smallloc$facility_bjs[smallloc$facility_bjs == "Columbus Correctional Institution"] <- "Columbus Correctional Center"
+smallloc$facility_bjs[smallloc$facility_bjs == "Marion Correctional Center"] <- "Marion Correctional Institution"
+
+smallloc <- smallloc %>%
+  filter(facility_bjs != "Hoke Correctional Institution") %>%
+  filter(facility_bjs != "Odom Correctional Institution") %>%
+  filter(facility_bjs != "Lanesboro Correctional Institution")
+
+names <- cleancovid %>%
+  group_by(cleanname) %>%
+  summarise(sum(fac_inc_tested))
+
+anson <- data.frame("facility_bjs" = "Anson Correctional Institution", "Address" = "1019 OLD PRISON CAMP ROAD", "Latitude" = 34.9929951, "Longitude" = -80.176627)
+
+bladen <- data.frame("facility_bjs" = "Bladen Correctional Center", "Address" = "5853 US 701 North, Elizabethtown, NC, 28337", "Latitude" = 34.6539028, "Longitude" = -78.5199773)
+  
+burke <- data.frame("facility_bjs" = "Burke CRV Center", "Address" = "5161 Western Ave, Morganton, NC 28655", "Latitude" = 35.678200, "Longitude" = -81.683990)
+  
+#hyde <- data.frame("facility_bjs" = "Hyde Correctional Institution", "Address" = "620 Prison Road", "Latitude" = 35.4944988, "Longitude" = -76.3341887)
+  
+ncpfw <- data.frame("facility_bjs" = "North Piedmont Correctional Center for Women", "Address" = "1420 RALEIGH ROAD", "Latitude" = 35.8131284, "Longitude" = -80.2288192)
+  
+raleigh <- data.frame("facility_bjs" = "Raleigh Correctional Center for Women", "Address" = "1201 SOUTH STATE STREET", "Latitude" = 35.7642308, "Longitude" = -78.6239115)
+
+smallloc <- rbind(smallloc, anson, bladen, burke, ncpfw, raleigh)
+smallloc <- smallloc %>%
+  arrange(smallloc$facility_bjs)
+
+names$cleanname[!(names$cleanname %in% smallloc$facility_bjs)]
+
+names(smallloc)[names(smallloc) == "facility_bjs"] <- "cleanname"
+
+withloc <- merge(names, smallloc, by = "cleanname", all = TRUE)
+```
+
+
+```{r}
+#Fixed overlapping columns in Excel. Making a new coviddata object (called messycovid)
+messycovid <- read_xlsx("cleanmessyRTI.xlsx", sheet = 1, guess_max = 10000)
+str(messycovid)
+
+#Recoding NA values in positive column, then removing those rows (taking out the rows that count deaths)
+messycovid$fac_inc_positive[is.na(messycovid$fac_inc_positive)] <- 100000
+messycovid <- messycovid %>%
+  filter(fac_inc_positive != 100000)
+
+#Adding ID column
+messyid <- messycovid %>%
+  mutate(
+    id = case_when(facility == "Albemarle CI" ~ "NC1",
+                   facility == "Carteret CC" ~ "NC10",
+                   facility == "Caswell CC" ~ "NC11",
+                   facility == "Catawba CC" ~ "NC12",
+                   facility == "Central Prison" ~ "NC13",
+                   facility == "Central Prison HCF" ~ "NC13",
+                   facility == "Columbus CI" ~ "NC14",
+                   facility == "Craggy CC" ~ "NC15",
+                   facility == "Craven CI" ~ "NC16",
+                   facility == "Dan River PWF" ~ "NC17",
+                   facility == "Davidson CC" ~ "NC18",
+                   facility == "Eastern CI" ~ "NC19",
+                   facility == "Alexander CI" ~ "NC2",
+                   facility == "Foothills CI" ~ "NC20",
+                   facility == "Forsyth CC" ~ "NC21",
+                   facility == "Franklin CC" ~ "NC22",
+                   facility == "Gaston CC" ~ "NC23",
+                   facility == "Greene CI" ~ "NC24",
+                   facility == "Harnett CI" ~ "NC25",
+                   facility == "Hyde CI" ~ "NC26",
+                   facility == "Johnston CI" ~ "NC27",
+                   facility == "Lincoln CC" ~ "NC28",
+                   facility == "Lumberton CI" ~ "NC29",
+                   facility == "Anson CI" ~ "NC3",
+                   facility == "Marion CI" ~ "NC30",
+                   facility == "Maury CI" ~ "NC31",
+                   facility == "Morrison CI" ~ "NC32",
+                   facility == "Mountain View CI" ~ "NC33",
+                   facility == "NC CI Women" ~ "NC34",
+                   facility == "Nash CI" ~ "NC35",
+                   facility == "Neuse CI" ~ "NC36",
+                   facility == "New Hanover CC" ~ "NC37",
+                   facility == "North Pied CRV" ~ "NC38",
+                   facility == "North Piedmont CRV" ~ "NC38",
+                   facility == "Orange CC" ~ "NC39",
+                   facility == "Avery-Mitchell CI" ~ "NC4",
+                   facility == "Pamlico CI" ~ "NC40",
+                   facility == "Pasquotank CI" ~ "NC41",
+                   facility == "Pender CI" ~ "NC42",
+                   facility == "Piedmont CI" ~ "NC43",
+                   facility == "Polk CI" ~ "NC44",
+                   facility == "Raleigh CCW" ~ "NC45",
+                   facility == "Randolph CC" ~ "NC46",
+                   facility == "Rutherford CC" ~ "NC47",
+                   facility == "Sampson CI" ~ "NC48",
+                   facility == "Sanford CC" ~ "NC49",
+                   facility == "Bertie CI" ~ "NC5",
+                   facility == "Scotland CI" ~ "NC50",
+                   facility == "Southern CI" ~ "NC51",
+                   facility == "Swannanoa CCW" ~ "NC52",
+                   facility == "Swannanoa CCw" ~ "NC52",
+                   facility == "Tabor CI" ~ "NC53",
+                   facility == "Tyrrell PWF" ~ "NC54",
+                   facility == "Wake CC" ~ "NC55",
+                   facility == "Warren CI" ~ "NC56",
+                   facility == "Wilkes CC" ~ "NC57",
+                   facility == "Bladen CC" ~ "NC6",
+                   facility == "Burke CRV Center" ~ "NC7",
+                   facility == "Burke CRV" ~ "NC7",
+                   facility == "Caldwell CC" ~ "NC8",
+                   facility == "Caledonia CI" ~ "NC9",))
+
+#messyid <- messyid %>%
+#  group_by(date, facility) %>%
+#  summarise_each(funs(max))
+
+#Cleaning names in a new column
+messynames <- messyid %>%
+  mutate(
+    cleanname = case_when(facility == "Albemarle CI" ~ "Albemarle Correctional Institution",
+                   facility == "Carteret CC" ~ "Carteret Correctional Center",
+                   facility == "Caswell CC" ~ "Caswell Correctional Center",
+                   facility == "Catawba CC" ~ "Catawba Correctional Center",
+                   facility == "Central Prison" ~ "Central Prison",
+                   facility == "Columbus CI" ~ "Columbus Correctional Center",
+                   facility == "Craggy CC" ~ "Craggy Correctional Center",
+                   facility == "Craven CI" ~ "Craven Correctional Institution",
+                   facility == "Dan River PWF" ~ "Dan River Prison Work Farm",
+                   facility == "Davidson CC" ~ "Davidson Correctional Center",
+                   facility == "Eastern CI" ~ "Eastern Correctional Institution",
+                   facility == "Alexander CI" ~ "Alexander Correctional Institution",
+                   facility == "Foothills CI" ~ "Foothills Correctional Institution",
+                   facility == "Forsyth CC" ~ "Forsyth Correctional Center",
+                   facility == "Franklin CC" ~ "Franklin Correctional Center",
+                   facility == "Gaston CC" ~ "Gaston Correctional Center",
+                   facility == "Greene CI" ~ "Greene Correctional Center",
+                   facility == "Harnett CI" ~ "Harnett Correctional Institution",
+                   facility == "Hyde CI" ~ "Hyde Correctional Institution",
+                   facility == "Johnston CI" ~ "Johnston Correctional Center",
+                   facility == "Lincoln CC" ~ "Lincoln Correctional Center",
+                   facility == "Lumberton CI" ~ "Lumberton Correctional Institution",
+                   facility == "Anson CI" ~ "Anson Correctional Institution",
+                   facility == "Marion CI" ~ "Marion Correctional Institution",
+                   facility == "Maury CI" ~ "Maury Correctional Institution",
+                   facility == "Morrison CI" ~ "Morrison Correctional Institution",
+                   facility == "Mountain View CI" ~ "Mountain View Correctional Facility",
+                   facility == "NC CI Women" ~ "North Carolina Correctional Institution for Women",
+                   facility == "Nash CI" ~ "Nash Correctional Institution",
+                   facility == "Neuse CI" ~ "Neuse Correctional Institution",
+                   facility == "New Hanover CC" ~ "New Hanover Correctional Center",
+                   facility == "North Pied CRV" ~ "North Piedmont Correctional Center for Women",
+                   facility == "North Piedmont CRV" ~ "North Piedmont Correctional Center for Women",
+                   facility == "Orange CC" ~ "Orange Correctional Center",
+                   facility == "Avery-Mitchell CI" ~ "Avery/Mitchell Correctional Institution",
+                   facility == "Pamlico CI" ~ "Pamlico Correctional Facility",
+                   facility == "Pasquotank CI" ~ "Pasquotank Correctional Institution",
+                   facility == "Pender CI" ~ "Pender Correctional Institution",
+                   facility == "Piedmont CI" ~ "Piedmont Correctional Institution",
+                   facility == "Polk CI" ~ "Polk Correctional Institution",
+                   facility == "Raleigh CCW" ~ "Raleigh Correctional Center for Women",
+                   facility == "Randolph CC" ~ "Randolph Correctional Center",
+                   facility == "Rutherford CC" ~ "Rutherford Correctional Center",
+                   facility == "Sampson CI" ~ "Sampson Correctional Institution",
+                   facility == "Sanford CC" ~ "Sanford Correctional Center",
+                   facility == "Bertie CI" ~ "Bertie Correctional Institution",
+                   facility == "Scotland CI" ~ "Scotland Correctional Institution",
+                   facility == "Southern CI" ~ "Southern Correctional Institution",
+                   facility == "Swannanoa CCW" ~ "Swannanoa Correctional Center for Women",
+                   facility == "Tabor CI" ~ "Tabor Correctional Institution",
+                   facility == "Tyrrell PWF" ~ "Tyrrell Prison Work Farm",
+                   facility == "Wake CC" ~ "Wake Correctional Center",
+                   facility == "Warren CI" ~ "Warren Correctional Institution",
+                   facility == "Wilkes CC" ~ "Wilkes Correctional Center",
+                   facility == "Bladen CC" ~ "Bladen Correctional Center",
+                   facility == "Burke CRV Center" ~ "Burke CRV Center",
+                   facility == "Burke CRV" ~ "Burke CRV Center",
+                   facility == "Caldwell CC" ~ "Caldwell Correctional Center",
+                   facility == "Caledonia CI" ~ "Caledonia Correctional Institution",
+                   facility == "Swannanoa CCw" ~ "Swannanoa Correctional Center for Women",
+                   facility == "Hoke CI" ~ "Hoke Correctional Institution",
+                   facility == "Robeson CRV" ~ "Robeson CRV Center"))
+
+namecheck <- messynames %>%
+  group_by(cleanname) %>%
+  summarise(sum(fac_inc_active))
+
+namecheck$cleanname %in% smallloc$cleanname
+smallloc$cleanname %in% namecheck$cleanname
+smallloc$cleanname[!smallloc$cleanname %in% namecheck$cleanname]
+
+names(smallloc)[names(smallloc) == "facility_bjs"] <- "cleanname"
+
+#Location + cleaned names
+messyloc <- merge(messynames, smallloc, by = "cleanname")
+
+messyloc <- messyloc %>%
+  arrange(date)
+
+messyplot <- messyloc %>%
+  select(cleanname, date, facility, stateagency, fac_inc_tested, fac_inc_positive, fac_inc_negative, fac_inc_recovered, fac_inc_active, fac_inc_new_tested, fac_inc_deaths, id, Address, Latitude, Longitude)
+```
+
+```{r}
+#Missing dates
+str(messynames)
+messynames$date <- as.Date(messynames$date, format = "%Y-%m-%d")
+str(messynames)
+
+missingdates <- subset(messynames, date >= "2020-09-14" & date <= "2020-10-05")
+
+str(missingdates)
+missingdates$facility <- toupper(missingdates$facility)
+missingid <- missingdates
+
+str(missingid)
+missingid$name <- missingid$facility
+
+#missingid <- missingid %>%
+#  filter(facility == "ALBEMARLE CI")
+#  mutate(id = "x")
+
+missingid <- as.data.frame(missingid)
+  
+#missingid$id[missingid$facility_bjs == "ALBEMARLE CI "] <- "NC1"
+
+missingid <- missingdates %>%
+  mutate(
+    id = case_when(facility == "Albemarle CI" ~ "NC1",
+                   facility == "Carteret CC" ~ "NC10",
+                   facility == "Caswell CC" ~ "NC11",
+                   facility == "Catawba CC" ~ "NC12",
+                   facility == "Central Prison" ~ "NC13",
+                   facility == "Central Prison HCF" ~ "NC13",
+                   facility == "Columbus CI" ~ "NC14",
+                   facility == "Craggy CC" ~ "NC15",
+                   facility == "Craven CI" ~ "NC16",
+                   facility == "Dan River PWF" ~ "NC17",
+                   facility == "Davidson CC" ~ "NC18",
+                   facility == "Eastern CI" ~ "NC19",
+                   facility == "Alexander CI" ~ "NC2",
+                   facility == "Foothills CI" ~ "NC20",
+                   facility == "Forsyth CC" ~ "NC21",
+                   facility == "Franklin CC" ~ "NC22",
+                   facility == "Gaston CC" ~ "NC23",
+                   facility == "Greene CI" ~ "NC24",
+                   facility == "Harnett CI" ~ "NC25",
+                   facility == "Hyde CI" ~ "NC26",
+                   facility == "Johnston CI" ~ "NC27",
+                   facility == "Lincoln CC" ~ "NC28",
+                   facility == "Lumberton CI" ~ "NC29",
+                   facility == "Anson CI" ~ "NC3",
+                   facility == "Marion CI" ~ "NC30",
+                   facility == "Maury CI" ~ "NC31",
+                   facility == "Morrison CI" ~ "NC32",
+                   facility == "Mountain View CI" ~ "NC33",
+                   facility == "NC CI Women" ~ "NC34",
+                   facility == "Nash CI" ~ "NC35",
+                   facility == "Neuse CI" ~ "NC36",
+                   facility == "New Hanover CC" ~ "NC37",
+                   facility == "North Pied CRV" ~ "NC38",
+                   facility == "North Piedmont CRV" ~ "NC38",
+                   facility == "Orange CC" ~ "NC39",
+                   facility == "Avery-Mitchell CI" ~ "NC4",
+                   facility == "Pamlico CI" ~ "NC40",
+                   facility == "Pasquotank CI" ~ "NC41",
+                   facility == "Pender CI" ~ "NC42",
+                   facility == "Piedmont CI" ~ "NC43",
+                   facility == "Polk CI" ~ "NC44",
+                   facility == "Raleigh CCW" ~ "NC45",
+                   facility == "Randolph CC" ~ "NC46",
+                   facility == "Rutherford CC" ~ "NC47",
+                   facility == "Sampson CI" ~ "NC48",
+                   facility == "Sanford CC" ~ "NC49",
+                   facility == "Bertie CI" ~ "NC5",
+                   facility == "Scotland CI" ~ "NC50",
+                   facility == "Southern CI" ~ "NC51",
+                   facility == "Swannanoa CCW" ~ "NC52",
+                   facility == "Swannanoa CCw" ~ "NC52",
+                   facility == "Tabor CI" ~ "NC53",
+                   facility == "Tyrrell PWF" ~ "NC54",
+                   facility == "Wake CC" ~ "NC55",
+                   facility == "Warren CI" ~ "NC56",
+                   facility == "Wilkes CC" ~ "NC57",
+                   facility == "Bladen CC" ~ "NC6",
+                   facility == "Burke CRV Center" ~ "NC7",
+                   facility == "Burke CRV" ~ "NC7",
+                   facility == "Caldwell CC" ~ "NC8",
+                   facility == "Caledonia CI" ~ "NC9",))
+
+getwd()
+write_xlsx(missingid, "/Users/taylorbuck/Desktop/missingid.xlsx")
+
+missingid2 <- read_xlsx("missingid.xlsx")
+str(missingid2)
+```
+
+```{r}
+missingnew <- read_xlsx("allid.xlsx")
+names(missingnew)[names(missingnew) == "cleanname...4"] <- "cleanname"
+
+missingloc <- merge(missingnew, smallloc, by = "cleanname", all = TRUE)
+missingloc <- missingloc %>%
+  arrange(date)
+missingloc <- missingloc[c(1:1188),]
+
+#Joining the missingloc to messyloc
+messyloc <- messyloc %>%
+  select(-fac_stateid)
+
+missingloc <- missingloc %>%
+  select(-cleanname...20, -...21)
+
+allwithloc <- rbind(messyloc, missingloc)
+allwithloc <- allwithloc %>%
+  arrange(date)
+
+#Adjusting cumulative
+fd <- allwithloc[c(1:55),]
+
+fd <- fd %>%
+  mutate(
+    newtests = fac_inc_tested,
+    newpositive = fac_inc_positive,
+    newnegative = fac_inc_negative
+  )
+
+rd <- allwithloc[c(56:nrow(allwithloc)),]
+
+rdx <- rd %>%
+  group_by(cleanname) %>%
+  arrange(date) %>%
+  mutate(
+    newtests = fac_inc_tested - lag(fac_inc_tested, default = first(fac_inc_tested)),
+    newpositive = fac_inc_positive - lag(fac_inc_positive, default = first(fac_inc_positive)),
+    newnegative = fac_inc_negative - lag(fac_inc_negative, default = first(fac_inc_negative))
+  )
+
+newalloc <- rbind(fd, rdx)
+
+#Going to recode all negative values as zero. Must be an error in the data
+newalloc$newtests[newalloc$newtests<0] <- 0
+newalloc$newpositive[newalloc$newpositive<0] <- 0
+newalloc$newnegative[newalloc$newnegative<0] <- 0
+
+#Calc active cases
+str(newalloc)
+head(newalloc)
+newalloc <- newalloc %>%
+  arrange(date)
+
+activealloc <- newalloc %>%
+  mutate(date = as.Date(date)) %>%
+  group_by(cleanname) %>%
+  mutate(activecases = map_dbl(date, ~sum(newpositive[(date >= . - 14) & date <= .])))
+
+formap <- activealloc %>%
+  select(cleanname, date, stateagency, fac_inc_tested, fac_inc_positive, fac_inc_negative, newtests, newpositive, newnegative, activecases, Address, Latitude, Longitude, )
+
+getwd()
+write_xlsx(formap, "/Users/taylorbuck/Desktop/mapdata.xlsx")
+
+#Calc recovered
+recdf <- activealloc %>%
+  mutate(date = as_date(date)) %>%
+  group_by(cleanname) %>%
+  arrange(date) %>%
+  mutate(cumpos = accumulate(newpositive, `+`))
+
+
+recalloc <- activealloc %>%
+  mutate(date = as.Date(date)) %>%
+  group_by(cleanname) %>%
+  mutate(reccases = map_dbl(date, ~sum(newpositive[(date <= . + 14) & date >= .])))
+
+  
+  mutate(reccases = for (i in 1:nrow(activealloc)) {
+    
+  })
+
+for (i in 1:nrow(activealloc)) {
+  #getting number of new cases
+  x <- activealloc$newpositive[i]
+  #add 14 days to the date
+  d <- activealloc$date + 14
+  activealloc$rec <- sum(x)
+}
+  
+  mutate(reccases = map_dbl(date, ~sum(newpositive[(date <= . + 14) & date >= .])))
+  
+  
+  mutate(reccases = rollsum(x = newpositive, 28, align = "right", fill = NA))
+  
+  mutate(reccases = map_dbl(date, ~sum(newpositive[(date >= . - 14)])))
+```
+
