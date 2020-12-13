@@ -674,9 +674,6 @@ allwithloc <- allwithloc %>%
 
 allwithloc <- allwithloc[-c(8171:8175),]
 
-allwithloc[8177,21] <- 35.8841
-allwithloc[8177,22] <- -81.17678
-
 #Adjusting cumulative
 fd <- allwithloc[c(1:55),]
 
@@ -732,7 +729,40 @@ recdf <- activealloc %>%
 
 recdf$reccases[is.na(recdf$reccases)] <- 0
 
+str(recdf)
 getwd()
-write_xlsx(recdf, "/Users/taylorbuck/Desktop/mapdata.xlsx")
+write_xlsx(recdf, "/Users/taylorbuck/Desktop/COVIDmap.xlsx")
+
+str(recdf)
+
+?accumulate
+
+allcases <- recdf %>%
+  group_by(date) %>%
+  summarise(x = sum(newpositive)) %>%
+  mutate(all = cumsum(x))
+
+getwd()
+write_xlsx(allcases, "/Users/taylorbuck/Desktop/allcases.xlsx")
+```
+
+```{r}
+#Looking at deaths
+deaths <- cleancovid %>%
+  select(cleanname, date, fac_inc_deaths)
+
+cleandeaths <- deaths %>%
+ na.omit(fac_inc_deaths)
+
+ddf <- cleandeaths %>%
+  group_by(cleanname) %>%
+  arrange(date) %>%
+  mutate(newdeath = fac_inc_deaths - lag(fac_inc_deaths, default = first(fac_inc_deaths)))
+
+#Adding that to mapdf
+mapoverall <- merge(recdf, ddf, by = "cleanname", all = TRUE)
+
+getwd()
+write_xlsx(ddf, "/Users/taylorbuck/Desktop/ddf.xlsx")
 ```
 
