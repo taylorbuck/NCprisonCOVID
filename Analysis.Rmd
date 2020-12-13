@@ -1,9 +1,12 @@
 ---
 title: "COVID in NC Prisons"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
 ```{r}
+#Libs
 library(dplyr)
 library(tidyverse)
 library(readxl)
@@ -759,10 +762,13 @@ ddf <- cleandeaths %>%
   arrange(date) %>%
   mutate(newdeath = fac_inc_deaths - lag(fac_inc_deaths, default = first(fac_inc_deaths)))
 
-#Adding that to mapdf
-mapoverall <- merge(recdf, ddf, by = "cleanname", all = TRUE)
+#Removing the negative value, replacing with a 0
+ddf$newdeath[ddf$newdeath < 0] <- 0
+
+howmany <- ddf %>%
+  filter(newdeath < 0)
 
 getwd()
-write_xlsx(ddf, "/Users/taylorbuck/Desktop/ddf.xlsx")
+write_xlsx(ddf, "/Users/taylorbuck/Desktop/deathsdata.xlsx")
 ```
 
